@@ -1,0 +1,13 @@
+| Feature        | Code Runner               | Run C/C++ / Debug C/C++                     |
+| -------------- | ------------------------- | ------------------------------------------- |
+| Compile & run  | Yes (auto)                | Only if preLaunchTask is set                |
+| Debugging      | No (prints only)          | Yes (breakpoints, stepping, variable watch) |
+| Output         | Terminal (stdout visible) | Sometimes broken on Windows w/ GCC+GDB      |
+| Setup required | Almost none               | Need `tasks.json` + `launch.json`           |
+
+
+✅ Bottom line
+
+If your goal is just to see output / run code → Code Runner is enough
+
+If your goal is debugging with breakpoints / watch variables → then you need launch.json + tasks.json

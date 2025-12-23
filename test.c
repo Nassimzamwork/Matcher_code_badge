@@ -48,7 +48,7 @@ int main() {
     };
 
     float dist = cosine_similarity(enc1, enc2);
-    printf("Cosine similarity: %f\n", dist);
+    printf("Cosine ** similarity: %f\n", dist);
 
     return 0;
 }

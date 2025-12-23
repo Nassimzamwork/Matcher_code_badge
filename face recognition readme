@@ -1,0 +1,144 @@
+# README - Face Recognition on STM32 Linux
+
+This document lists all the commands and steps followed to set up the environment, run Python face recognition code, convert it to C, cross-compile for STM32, and measure RAM usage.
+
+---
+
+## 1. Python environment setup on Windows with VSCode
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment (PowerShell)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install required libraries
+pip install numpy opencv-python face_recognition
+
+# Check if dlib installed
+python -c "import dlib; print(dlib.__version__)"
+
+# Run Python face recognition script
+python test.py
+
+---
+
+## 2. Prepare embedding vectors
+
+# Example embedding vectors (128 features, quantized to int16)
+# Saved using pickle in Python
+enc1 = [-3885, 2367, 822, ..., -316]
+enc2 = [-3995, 3150, 2314, ..., 1059]
+
+# Code snippet for comparing embeddings using cosine similarity in Python
+
+def cosine_int16(q1, q2):
+    dot = np.dot(q1.astype(np.int32), q2.astype(np.int32))
+    n1 = np.sqrt(np.dot(q1.astype(np.int32), q1.astype(np.int32)))
+    n2 = np.sqrt(np.dot(q2.astype(np.int32), q2.astype(np.int32)))
+    return dot / (n1 * n2 + 1e-12)
+
+---
+
+## 3. C code for cosine similarity
+
+# File: test.c
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+
+#define N 128
+
+float cosine_similarity(int16_t v1[N], int16_t v2[N]) {
+    int32_t dot = 0, norm1 = 0, norm2 = 0;
+    for (int i = 0; i < N; i++) {
+        dot += v1[i] * v2[i];
+        norm1 += v1[i] * v1[i];
+        norm2 += v2[i] * v2[i];
+    }
+    return dot / (sqrtf(norm1) * sqrtf(norm2) + 1e-12f);
+}
+
+int main() {
+    int16_t enc1[N] = { /* embedding 1 */ };
+    int16_t enc2[N] = { /* embedding 2 */ };
+    float dist = cosine_similarity(enc1, enc2);
+    printf("Cosine similarity: %f\n", dist);
+    return 0;
+}
+
+---
+
+## 4. Compile and test on native Linux (x86_64)
+
+# Compile
+gcc test.c -O2 -o test_native -lm
+
+# Run and measure RAM usage
+/usr/bin/time -v ./test_native
+
+# Check "Maximum resident set size" in kB for RAM used
+
+---
+
+## 5. Cross-compilation for STM32 (ARM)
+
+# Use ARM GNU toolchain
+# Example toolchain path:
+~/Downloads/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-linux-gnueabihf/bin
+
+# Compile for ARM
+arm-none-linux-gnueabihf-gcc test.c -O2 -lm -o test_arm
+
+# Verify binary type
+file test_arm
+# Should display ELF 32-bit LSB executable, ARM, ...
+
+# Note: Cannot execute ARM binary on x86 host
+./test_arm
+# -> Exec format error expected
+
+---
+
+## 6. Sending executable to STM32 via serial (picocom)
+
+# On PC:
+picocom -b 115200 /dev/ttyUSB0
+
+# On STM32 console, prepare to receive file
+rz
+
+# On PC terminal, send file using ZMODEM
+sz test_arm
+
+# After transfer on STM32
+chmod +x test_arm
+./test_arm
+
+---
+
+## 7. Measure RAM usage on STM32
+
+# Use /usr/bin/time
+/usr/bin/time -v ./test_arm
+
+# Look for "Maximum resident set size" in kB
+# Example output: Maximum resident set size: 4096 kB
+
+# Notes:
+# - Real RAM usage may vary slightly depending on OS, malloc, libraries.
+# - Secure elements typically have tens of KB of RAM (NXP SE, etc.).
+# - For exact memory profiling, a debugger or memory probe on target may be required.
+
+---
+
+## 8. Additional notes
+
+- Remove printf statements to minimize RAM usage.
+- Use int16_t instead of float where possible.
+- Cross-compilation is essential since STM32 Linux cannot run x86 binaries.
+- ZMODEM (rz/sz) is convenient for transferring binaries over serial.

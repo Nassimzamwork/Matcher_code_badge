@@ -36,3 +36,6 @@ After making changes, you only need to do:
 git add .
 git commit -m "Update message"
 git push
+
+git config --global user.name
+git config --global user.email
